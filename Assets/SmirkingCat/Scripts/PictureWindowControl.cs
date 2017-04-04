@@ -104,10 +104,13 @@ public class PictureWindowControl : MonoBehaviour
     private void OnDestroy()
     {
 
-        _controller.Gripped -= Controller_Gripped;
-        _controller.Ungripped -= Controller_Ungripped;
-        _controller.PadClicked -= Controller_PadClicked;
-        _controller.TriggerClicked -= Controller_TriggerClicked;
+        if (_controller != null)
+        {
+            _controller.Gripped -= Controller_Gripped;
+            _controller.Ungripped -= Controller_Ungripped;
+            _controller.PadClicked -= Controller_PadClicked;
+            _controller.TriggerClicked -= Controller_TriggerClicked;
+        }
 
     }
 

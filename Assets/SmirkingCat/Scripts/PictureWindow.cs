@@ -76,6 +76,15 @@ public class PictureWindow : MonoBehaviour
         get { return _corners[Corner.TopRight]; }
     }
 
+	public float Width
+    {
+		get { return (BottomRight - BottomLeft).magnitude; }
+	}
+
+	public float Height
+    {
+		get { return (TopLeft - BottomLeft).magnitude; }
+	}
 
     // The normal of the window
     private Vector3 _windowNormal;
@@ -134,11 +143,11 @@ public class PictureWindow : MonoBehaviour
         if (_useTargetBox && _targetBox == null)
         {
 
-            _targetBox = Instantiate(_targetBoxPrefab, 
-                CenterOfVectors(new Vector3[]{ BottomLeft, BottomRight, TopLeft, TopRight }), 
-                Quaternion.LookRotation(_windowNormal));
+            _targetBox = Instantiate(_targetBoxPrefab);
             _targetBox.transform.SetParent(transform);
             _targetBox.SetActive(false);
+            _targetBox.transform.position = CenterOfVectors(new Vector3[] { BottomLeft, BottomRight, TopLeft, TopRight });
+            _targetBox.transform.rotation = Quaternion.LookRotation(_windowNormal);
 
         }
 
@@ -174,6 +183,9 @@ public class PictureWindow : MonoBehaviour
         _windowNormal = Vector3.zero;
 
         _windowController.DestroyCamera();
+
+        _useTargetBox = false;
+        Destroy(_targetBox);
 
         ShowInstruction(INSTRUCTION.BottomLeft);
 
