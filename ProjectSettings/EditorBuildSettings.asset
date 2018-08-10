@@ -4,4 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/SmirkingCat/Scenes/Tanks!Scene.unity
+    guid: 415b82b6c186adc4da103941cf33da62
+  m_configObjects: {}

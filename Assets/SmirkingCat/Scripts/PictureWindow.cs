@@ -5,265 +5,209 @@
  *
  *  Allows the user (outside of HMD) to view into the virtual world by turning the display into a window.
  *  
- *  First the user determines which controller to use, then defines the boundaries of the display, then the camera is 
- *  forced to display an off center projection from the perspective of their tracked object.
+ *  First the user defines the boundaries of the display, then the camera is forced to 
+ *  display an off center projection from the perspective of their tracked object.
  *  
  */
 
-using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 
-public class PictureWindow : MonoBehaviour
+
+namespace SmirkingCat.PictureWindow
 {
 
+    public class PictureWindow : MonoBehaviour {
 
-    // This
-    private static PictureWindow _instance;
-    public static PictureWindow Instance
-    {
-        get { return _instance; }
-    }
+        public static PictureWindow Instance { get; private set; }
 
+        [SerializeField]
+        private PictureWindowUI _windowUI;
+        public PictureWindowUI WindowUI { get { return _windowUI; } }
 
-    // The controller assigned to the window
-    private PictureWindowControl _windowController;
-    public PictureWindowControl WindowController
-    {
-        get { return _windowController; }
-        set { _windowController = value; }
-    }
+        [SerializeField]
+        private RealWindow _realWindow;
+        public RealWindow RealWindow { get { return _realWindow; } }
 
-    // The camera assigned to the window
-    private GameObject _windowCamera;
-    public GameObject WindowCamera
-    {
-        get { return _windowCamera; }
-        set { _windowCamera = value; }
-    }
+        [SerializeField]
+        private VirtualWindow _virtualWindow;
+        public VirtualWindow VirtualWindow { get { return _virtualWindow; } }
 
+        [SerializeField]
+        private PictureWindowCamera _windowCamera;
+        public PictureWindowCamera WindowCamera { get { return _windowCamera; } }
 
-    // Terrible setup to show off the instruction UI
-    public static class INSTRUCTION
-    {
-        public const int None = -1;
-        public const int AssignController = 0;
-        public const int BottomLeft = 1;
-        public const int BottomRight = 2;
-        public const int TopLeft = 3;
-    };
-    private GameObject[] _instructions;
-    private GameObject _background, _note;
+        [SerializeField]
+        [Tooltip("The tracked object to use." + "\n" +
+            "Leave empty to use one of the controllers.")]
+        private Transform _trackedObject;
+        public Transform TrackedObject { get { return _trackedObject; } }
 
+        public PictureWindowControl Left { get; set; }
+        public PictureWindowControl Right { get; set; }
+        public PictureWindowControl WindowController { get; set; }
 
-    public enum Corner { BottomLeft, BottomRight, TopLeft, TopRight };
+        // Johnny Lee style target filled box used for debugging
+        public GameObject _targetBoxPrefab;
+        private GameObject _targetBox;
+        public bool UseTargetBox { get; set; }
 
-    private Dictionary <Corner, Vector3> _corners = new Dictionary<Corner, Vector3>();
-
-    public Vector3 BottomLeft
-    {
-        get { return _corners[Corner.BottomLeft]; }
-    }
-    public Vector3 BottomRight
-    {
-        get { return _corners[Corner.BottomRight]; }
-    }
-    public Vector3 TopLeft
-    {
-        get { return _corners[Corner.TopLeft]; }
-    }
-    public Vector3 TopRight
-    {
-        get { return _corners[Corner.TopRight]; }
-    }
-
-	public float Width
-    {
-		get { return (BottomRight - BottomLeft).magnitude; }
-	}
-
-	public float Height
-    {
-		get { return (TopLeft - BottomLeft).magnitude; }
-	}
-
-    // The normal of the window
-    private Vector3 _windowNormal;
-    public Vector3 WindowNormal
-    {
-        get { return _windowNormal; }
-        set { _windowNormal = value; }
-    }
-    
-
-    // Johnny Lee style target filled box used for debugging
-    [Tooltip("Whether to show a \"Johnny Lee style\" box filled with targets.\n\n"+
-        "Toggled by clicking trackpad.")]
-    public bool _useTargetBox;
-    public GameObject _targetBoxPrefab;
-    private GameObject _targetBox;
+        // Whether the window has already been setup or not
+        public bool IsConfigured { get; set; }
 
 
-    private void Awake()
-    {
-
-        _instance = this;
-
-        DontDestroyOnLoad(this.gameObject);
-
-        // Assign all the UI slides
-        _background = GameObject.Find("Background");
-        _note = GameObject.Find("Note");
-        
-        _instructions = new GameObject[5];
-        _instructions[0] = GameObject.Find("Instruction Assign Controller");
-        _instructions[1] = GameObject.Find("Instruction Bottom Left");
-        _instructions[2] = GameObject.Find("Instruction Bottom Right");
-        _instructions[3] = GameObject.Find("Instruction Top Left");
-        _instructions[4] = GameObject.Find("Instruction Cover");
-
-        ShowInstruction(INSTRUCTION.AssignController);
-
-    }
-
-
-    private void Update()
-    {
-
-        // Setup camera if there isn't one and we've established the corners of the window
-        if (WindowCamera == null && _corners.ContainsKey(Corner.TopRight))
+        private void Awake()
         {
 
-            _windowController.CreateCamera();
-
-            ShowInstruction(INSTRUCTION.None);
+            // There can only be one PictureWindow
+            if (Instance == null) Instance = this;
+            else if (Instance != this) Destroy(gameObject);
 
         }
 
-        // Create box filled with targets if necessary.
-        if (_useTargetBox && _targetBox == null)
+
+        private IEnumerator Start()
         {
 
-            _targetBox = Instantiate(_targetBoxPrefab);
-            _targetBox.transform.SetParent(transform);
-            _targetBox.SetActive(false);
-            _targetBox.transform.position = CenterOfVectors(new Vector3[] { BottomLeft, BottomRight, TopLeft, TopRight });
-            _targetBox.transform.rotation = Quaternion.LookRotation(_windowNormal);
+            // Set Cursor to not be visible
+            Cursor.visible = false;
+
+            yield return StartCoroutine(Initialize());
 
         }
 
-        if (_targetBox) _targetBox.SetActive(_useTargetBox);
 
-    }
-
-
-    public Vector3 CenterOfVectors( Vector3[] vectors )
-    {
-        Vector3 sum = Vector3.zero;
-        if( vectors == null || vectors.Length == 0 )
-        {
-            return sum;
-        }
- 
-        foreach( Vector3 vec in vectors )
-        {
-            sum += vec;
-        }
-        return sum/vectors.Length;
-    }
-
-
-    public void ResetWindow()
-    {
-
-        _corners.Remove(Corner.BottomLeft);
-        _corners.Remove(Corner.BottomRight);
-        _corners.Remove(Corner.TopLeft);
-        _corners.Remove(Corner.TopRight);
-
-        _windowNormal = Vector3.zero;
-
-        _windowController.DestroyCamera();
-
-        _useTargetBox = false;
-        Destroy(_targetBox);
-
-        ShowInstruction(INSTRUCTION.BottomLeft);
-
-    }
-
-
-    public void SetCorner( Vector3 position )
-    {
-
-        if (!_corners.ContainsKey(Corner.BottomLeft))
+        /// <summary>
+        /// Initializes controllers
+        /// </summary>
+        private IEnumerator Initialize()
         {
 
-            _corners.Add(Corner.BottomLeft, position);
-            ShowInstruction(INSTRUCTION.BottomRight);
+            // Grab the SteamVR_companionAppManager so we can identify our devices
+            SteamVR_ControllerManager controllerManager = FindObjectOfType<SteamVR_ControllerManager>();
 
-        }
-        else if (!_corners.ContainsKey(Corner.BottomRight))
-        {
+            // We don't want to do anything with the hands until we have both controllers
+            while (controllerManager.left.GetComponent<SteamVR_TrackedObject>().index == SteamVR_TrackedObject.EIndex.None ||
+                controllerManager.right.GetComponent<SteamVR_TrackedObject>().index == SteamVR_TrackedObject.EIndex.None)
+                yield return null;
 
-            _corners.Add(Corner.BottomRight, position);
-            ShowInstruction(INSTRUCTION.TopLeft);
-
-        }
-        else if (!_corners.ContainsKey(Corner.TopLeft))
-        {
-
-            _corners.Add(Corner.TopLeft, position);
-            ShowInstruction(INSTRUCTION.None);
+            // Add the PictureWindowControl components to the controllers
+            Left = controllerManager.left.AddComponent<PictureWindowControl>();
+            Right = controllerManager.right.AddComponent<PictureWindowControl>();
 
         }
 
-        // Once we've set the necessary three, calculate the fourth
-        if (_corners.ContainsKey(Corner.BottomLeft) && _corners.ContainsKey(Corner.BottomRight) && _corners.ContainsKey(Corner.TopLeft))
+
+        private void Update()
         {
 
-            position = new Vector3(_corners[Corner.TopLeft].x + (_corners[Corner.BottomRight].x - _corners[Corner.BottomLeft].x),
-                _corners[Corner.BottomRight].y + (_corners[Corner.TopLeft].y - _corners[Corner.BottomLeft].y),
-                _corners[Corner.BottomRight].z + (_corners[Corner.TopLeft].z - _corners[Corner.BottomLeft].z));
+            // Create box filled with targets if necessary
+            if (UseTargetBox && _targetBox == null)
+            {
 
-            _corners.Add(Corner.TopRight, position);
+                _targetBox = Instantiate(_targetBoxPrefab, VirtualWindow.Center, Quaternion.LookRotation(VirtualWindow.WindowNormal), VirtualWindow.transform);
+                _targetBox.SetActive(false);
+
+            }
+
+            if (_targetBox) _targetBox.SetActive(UseTargetBox);
 
         }
 
-    }
 
-
-    public void ShowInstruction( int instruction )
-    {
-
-        // First make sure they are all inactive
-        foreach (GameObject inst in _instructions)
+        /// <summary>
+        /// Destroys the target box and resets the use flag
+        /// </summary>
+        public void DestroyTargetBox()
         {
 
-            inst.SetActive(false);
+            UseTargetBox = false;
+            Destroy(_targetBox);
 
         }
 
-        // Also make sure the note is inactive
-        _note.SetActive(false);
 
-
-        // For any valid instruction, activate it
-        if (instruction != INSTRUCTION.None)
+        /// <summary>
+        /// Resets the PictureWindow
+        /// </summary>
+        public void ResetWindow()
         {
 
-            _background.SetActive(true);
-            _instructions[instruction].SetActive(true);
+            WindowController = null;
+
+            DestroyTargetBox();
+
+            RealWindow.ResetWindow();
+            VirtualWindow.ResetWindow();
+
+            WindowCamera.SmoothCam.Target = null;
+            WindowCamera.IsConfigured = false;
+
+            WindowUI.ShowInstruction(PictureWindowUI.INSTRUCTION.TopLeft);
+
+            IsConfigured = false;
 
         }
-        else
+
+
+        /// <summary>
+        /// Steps through setting the necessary positions to determine the location of the display.
+        /// 
+        /// This makes the assumption none of the corners will ever be exactly Vector3.zero.
+        /// </summary>
+        /// <param name="position"></param>
+        public void SetCorner( Vector3 position )
         {
 
-            _background.SetActive(false);
+            bool calculateLast = false;
+
+            if (RealWindow.TopLeft == Vector3.zero)
+            {
+
+                RealWindow.TopLeft = position;
+                WindowUI.ShowInstruction(PictureWindowUI.INSTRUCTION.BottomLeft);
+
+            }
+            else if (RealWindow.BottomLeft == Vector3.zero)
+            {
+
+                RealWindow.BottomLeft = position;
+                WindowUI.ShowInstruction(PictureWindowUI.INSTRUCTION.BottomRight);
+
+            }
+            else if (RealWindow.BottomRight == Vector3.zero)
+            {
+
+                RealWindow.BottomRight = position;
+                WindowUI.ShowInstruction(PictureWindowUI.INSTRUCTION.None);
+
+                // Set the flag that the required corners are set
+                calculateLast = true;
+            }
+
+            // Once we've set the necessary three, calculate the fourth
+            if (calculateLast)
+            {
+
+                RealWindow.TopRight = new Vector3(RealWindow.TopLeft.x + (RealWindow.BottomRight.x - RealWindow.BottomLeft.x),
+                    RealWindow.BottomRight.y + (RealWindow.TopLeft.y - RealWindow.BottomLeft.y),
+                    RealWindow.BottomRight.z + (RealWindow.TopLeft.z - RealWindow.BottomLeft.z));
+
+                // Duplicate everything over to the VirtualWindow
+                VirtualWindow.TopLeft = RealWindow.TopLeft;
+                VirtualWindow.BottomLeft = RealWindow.BottomLeft;
+                VirtualWindow.BottomRight = RealWindow.BottomRight;
+                VirtualWindow.TopRight = RealWindow.TopRight;
+
+                // Set the config flag
+                IsConfigured = true;
+
+                // Turn the instructions off
+                WindowUI.ShowInstruction(PictureWindowUI.INSTRUCTION.None);
+
+            }
 
         }
-
-        // Activate the note for every instruction except picking controller
-        if (instruction > INSTRUCTION.AssignController) _note.SetActive(true);
 
     }
 

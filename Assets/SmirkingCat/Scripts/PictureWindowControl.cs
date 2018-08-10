@@ -7,6 +7,7 @@
  *  
  */
 
+using SmirkingCat.PictureWindow;
 using UnityEngine;
 
 
@@ -14,14 +15,8 @@ using UnityEngine;
 public class PictureWindowControl : MonoBehaviour
 {
 
-    [Tooltip("Whether to use a modified version of SteamVR_TrackedObject")]
-    public bool _useCustomTrackedObject = true;
-
-    [Tooltip("The amount of time to hold GRIP in order to assign that controller to the window")]
-    public float _assignTime = 1;
-
-    [Tooltip("The amount of time to hold APP MENU in order to reset the window")]
-    public float _resetTime = 3;
+    [Tooltip("The amount of time to hold GRIP in order to reset the window")]
+    public float _resetTime = 2;
 
 
     // Timer for holding down the button to assign a controller or reset the window
@@ -35,19 +30,30 @@ public class PictureWindowControl : MonoBehaviour
 
 	private SteamVR_TrackedController _controller;
 
-    private GameObject _model;
+    public GameObject Model { get; set; }
+
+    private PictureWindow PW = PictureWindow.Instance;
+
 
     private void Start()
     {
 
         _controller = GetComponent<SteamVR_TrackedController>();
 
-        // Assign grip event listeners
+        // Assign controller event listeners
         _controller.Gripped += Controller_Gripped;
         _controller.Ungripped += Controller_Ungripped;
+        _controller.MenuButtonClicked += Controller_MenuClicked;
+        _controller.PadClicked += Controller_PadClicked;
+        _controller.TriggerClicked += Controller_TriggerClicked;
 
         SteamVR_RenderModel renderModel = GetComponentInChildren<SteamVR_RenderModel>();
-        if (renderModel != null) _model = renderModel.gameObject;
+        if (renderModel != null) Model = renderModel.gameObject;
+
+        // Create a child object at the tip of the controller to take measurements from
+        _tip = new GameObject("Tip");
+        _tip.transform.SetParent(transform);
+        _tip.transform.localPosition = _tipOffset;
 
     }
 
@@ -55,49 +61,38 @@ public class PictureWindowControl : MonoBehaviour
     private void Update()
     {
 
-        // If there isn't a controller assigned and we've held the grip long enough,
-        // assign this controller.
-        if (PictureWindow.Instance.WindowController == null &&
-            (_gripStartTime != 0) && (Time.time - _gripStartTime) > _assignTime )
+        // If this is the assigned controller and we're holding the grip
+        // update UI or reset the window
+        if (PW.WindowController == this)
         {
 
-            _gripStartTime = 0;
-
-            if (_useCustomTrackedObject)
+            if (_gripStartTime != 0)
             {
 
-                SteamVR_TrackedObject steamVR_TrackedObj = GetComponent<SteamVR_TrackedObject>();
-                steamVR_TrackedObj.enabled = false;
+                // If it's been long enough, reset the window.
+                if ((Time.time - _gripStartTime) > _resetTime)
+                {
 
-                SmirkingCat_TrackedObject smirkingCat_TrackedObj = gameObject.AddComponent<SmirkingCat_TrackedObject>();
-                smirkingCat_TrackedObj.SetDeviceIndex((int) steamVR_TrackedObj.index);
+                    _gripStartTime = 0;
 
+                    PW.WindowUI.ResetBar.Value = _gripStartTime;
+
+                    PW.ResetWindow();
+
+                }
+                else
+                {
+
+                    // Update the UI w/ % of grip time
+                    PW.WindowUI.ResetBar.Value = Mathf.Clamp01((Time.time - _gripStartTime) / _resetTime);
+
+                }
             }
-
-            // Create a child object at the tip of the controller to take measurements from
-            _tip = new GameObject();
-            _tip.name = "Tip";
-            _tip.transform.SetParent(transform);
-            _tip.transform.localPosition = _tipOffset;
-
-            AssignController();
-
-            PictureWindow.Instance.ShowInstruction(PictureWindow.INSTRUCTION.BottomLeft);
+            else
+                PW.WindowUI.ResetBar.Value = _gripStartTime;
+            
 
         }
-
-        // If there is an assigned controller and we've held the grip long enough,
-        // reset the window.
-        if (PictureWindow.Instance.WindowController != null &&
-            (_gripStartTime != 0) && (Time.time - _gripStartTime) > _resetTime )
-        {
-
-            _gripStartTime = 0;
-
-            PictureWindow.Instance.ResetWindow();
-                
-        }
-
     }
 
 
@@ -108,9 +103,12 @@ public class PictureWindowControl : MonoBehaviour
         {
             _controller.Gripped -= Controller_Gripped;
             _controller.Ungripped -= Controller_Ungripped;
+            _controller.MenuButtonClicked -= Controller_MenuClicked;
             _controller.PadClicked -= Controller_PadClicked;
             _controller.TriggerClicked -= Controller_TriggerClicked;
         }
+
+        Destroy(_tip);
 
     }
 
@@ -120,7 +118,7 @@ public class PictureWindowControl : MonoBehaviour
     {
 
         // Set start time
-        _gripStartTime = Time.time;
+        if (PW.IsConfigured) _gripStartTime = Time.time;
 
     }
 
@@ -128,7 +126,23 @@ public class PictureWindowControl : MonoBehaviour
     private void Controller_Ungripped(object sender, ClickedEventArgs e)
     {
 
-        _gripStartTime = 0;
+        if (PW.IsConfigured) _gripStartTime = 0;
+
+    }
+
+
+    private void Controller_MenuClicked(object sender, ClickedEventArgs e)
+    {
+
+        if (PW.WindowController == this &&
+            PW.IsConfigured)
+        {
+
+            // Toggle perspective
+            PW.WindowCamera.UseEnhancedPerspective = !PW.WindowCamera.UseEnhancedPerspective;
+            PW.WindowUI.ShowSubtitle((PW.WindowCamera.UseEnhancedPerspective ? "Enhanced" : "Standard" ) + " perspective");
+
+        }
 
     }
 
@@ -136,8 +150,17 @@ public class PictureWindowControl : MonoBehaviour
     private void Controller_PadClicked(object sender, ClickedEventArgs e)
     {
 
-        // Toggle debug box boolean
-        PictureWindow.Instance._useTargetBox= !PictureWindow.Instance._useTargetBox;
+        if (PW.WindowController == this &&
+            PW.IsConfigured)
+        {
+
+            // Toggle debug box boolean
+            PW.UseTargetBox = !PW.UseTargetBox;
+
+            // If we toggled off, destroy the box
+            if (!PW.UseTargetBox) PW.DestroyTargetBox();
+
+        }
 
     }
 
@@ -145,72 +168,41 @@ public class PictureWindowControl : MonoBehaviour
     private void Controller_TriggerClicked(object sender, ClickedEventArgs e)
     {
 
-        // Assign one of the corners
-        PictureWindow.Instance.SetCorner(_tip.transform.position);
+        if (PW.WindowController == null)
+            PW.WindowController = this;
 
-    }
-    #endregion
+        // If all the corners are not assigned yet
+        if (!PW.IsConfigured)
 
-
-    private void AssignController()
-    {
-
-        // Set the assigned window controller to this one
-        PictureWindow.Instance.WindowController = this;
-
-        // Go through and disable other window controls
-        PictureWindowControl[] windowControls = FindObjectsOfType<PictureWindowControl>();
-
-        foreach (PictureWindowControl windowControl in windowControls)
-        {
-
-            if (windowControl != this)
+            // ... and this is the window controller, then assign one of the corners
+            if (PW.WindowController == this)
             {
 
-                Destroy(windowControl.GetComponent<PictureWindowControl>());
+                PW.SetCorner(_tip.transform.position);
 
             }
 
-        }
+            // ... otherwise it was started with another controller
+            // so make sure it's model is turned back on, then make
+            // this the window controller and reset the window
+            else
+            {
 
-        if (_controller != null)
+                if (PW.WindowController.Model != null) PW.WindowController.Model.SetActive(true);
+                PW.WindowController = this;
+                PW.ResetWindow();
+
+            }
+        else if (PW.WindowController == this)
         {
-            // Assign touchpad and trigger event listeners
-            _controller.PadClicked += Controller_PadClicked;
-            _controller.TriggerClicked += Controller_TriggerClicked;
+
+            PW.WindowCamera.SmoothCam.Enabled = !PW.WindowCamera.SmoothCam.Enabled;
+            PW.WindowUI.ShowSubtitle("Smooth movement is " + (PW.WindowCamera.SmoothCam.Enabled ? "enabled" : "disabled" ));
+
         }
 
     }
-
-
-    public void CreateCamera()
-    {
-
-        // Disable the controller model (it just gets in the way)
-        if (_model != null) _model.SetActive(false);
-
-        GameObject pwCam = new GameObject("PWCamera", typeof(Camera), typeof(PictureWindowCamera));
-        pwCam.transform.SetParent(transform);
-        pwCam.transform.localPosition = Vector3.zero;
-
-        Camera cam = pwCam.GetComponent<Camera>();
-        cam.nearClipPlane = 0.01f;
-        cam.stereoTargetEye = StereoTargetEyeMask.None;
-
-        PictureWindow.Instance.WindowCamera = pwCam;
-
-    }
-
-
-    public void DestroyCamera()
-    {
-
-        // Re-enable the controller model
-        if (_model != null) _model.SetActive(true);
- 
-        Destroy(GameObject.Find("PWCamera"));
-
-    }
+    #endregion
 
 
 }
