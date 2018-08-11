@@ -5,17 +5,18 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/deprecatedcoder.svg?style=flat&label=twitter)](https://twitter.com/deprecatedcoder)
 [![YouTube](https://img.shields.io/badge/youtube-channel-e52d27.svg)](https://www.youtube.com/channel/UCoLHzWHjADqMNUXrk0Xk6vA)
 
-## Getting Started
+## To Use
 
- * Clone this repo `git clone https://github.com/deprecatedcoder/PictureWindow.git`
- * Open `PictureWindow` within Unity
- * Import the [SteamVR Plugin]
- * Add the `PictureWindowControl` script to the Controllers
- * Add the `Companion UI` and `PictureWindow` prefabs to the scene
+ * Drop the [unityPackage] into a project that is using [SteamVR] 
+ * Add the PictureWindow and VirtualWindow prefabs on [CameraRig], then the PictureWindowUI in the scene, and assign the necessary references in the inspector
+
+## More complete instructions available [here]
 
 ## License
 
 Code released under the [MIT License].
 
-[SteamVR Plugin]: https://www.assetstore.unity3d.com/en/#!/content/32647
+[here]: http://smirkingcat.software/picturewindow/
+[unityPackage]: https://github.com/deprecatedcoder/PictureWindow/releases/download/1.1/1.1.0.unitypackage
+[SteamVR]: https://www.assetstore.unity3d.com/en/#!/content/32647
 [MIT License]: https://github.com/deprecatedcoder/PictureWindow/blob/master/LICENSE
