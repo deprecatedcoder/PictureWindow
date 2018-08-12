@@ -17,6 +17,6 @@
 Code released under the [MIT License].
 
 [here]: http://smirkingcat.software/picturewindow/
-[unityPackage]: https://github.com/deprecatedcoder/PictureWindow/releases/download/1.1/1.1.0.unitypackage
+[unityPackage]: https://github.com/deprecatedcoder/PictureWindow/releases/download/1.1.1/1.1.1.unitypackage
 [SteamVR]: https://www.assetstore.unity3d.com/en/#!/content/32647
 [MIT License]: https://github.com/deprecatedcoder/PictureWindow/blob/master/LICENSE
