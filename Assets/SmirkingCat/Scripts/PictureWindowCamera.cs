@@ -42,7 +42,7 @@ public class PictureWindowCamera : MonoBehaviour
     {
 
 
-        if (PW && PW.IsConfigured)
+        if (PW && PW.IsConfigured && PW.WindowController)
         {
 
             if (!IsConfigured) ConfigureCamera();

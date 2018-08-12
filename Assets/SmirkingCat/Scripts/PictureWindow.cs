@@ -69,6 +69,8 @@ namespace SmirkingCat.PictureWindow
         private IEnumerator Start()
         {
 
+            WindowUI.ShowInstruction(PictureWindowUI.INSTRUCTION.TopLeft);
+
             // Set Cursor to not be visible
             Cursor.visible = false;
 
@@ -111,6 +113,42 @@ namespace SmirkingCat.PictureWindow
             }
 
             if (_targetBox) _targetBox.SetActive(UseTargetBox);
+
+            if (!IsConfigured)
+            {
+
+                if (RealWindow.Display.transform.position != Vector3.zero)
+                {
+
+                    WindowUI.ShowInstruction(PictureWindowUI.INSTRUCTION.Trigger);
+
+                    if (WindowController)
+                    {
+
+                        MeshFilter rend = RealWindow.Display.GetComponent<MeshFilter>();
+
+                        // Set the corners based on the corners of the configured Quad
+                        RealWindow.BottomLeft = RealWindow.Display.transform.TransformPoint(rend.mesh.vertices[0]);
+                        RealWindow.TopRight = RealWindow.Display.transform.TransformPoint(rend.mesh.vertices[1]);
+                        RealWindow.BottomRight = RealWindow.Display.transform.TransformPoint(rend.mesh.vertices[2]);
+                        RealWindow.TopLeft = RealWindow.Display.transform.TransformPoint(rend.mesh.vertices[3]);
+
+                        // Duplicate everything over to the VirtualWindow
+                        VirtualWindow.TopLeft = RealWindow.TopLeft;
+                        VirtualWindow.BottomLeft = RealWindow.BottomLeft;
+                        VirtualWindow.BottomRight = RealWindow.BottomRight;
+                        VirtualWindow.TopRight = RealWindow.TopRight;
+
+                        // Set the config flag
+                        IsConfigured = true;
+
+                        // Turn the instructions off
+                        WindowUI.ShowInstruction(PictureWindowUI.INSTRUCTION.None);
+                    }
+
+                }
+
+            }
 
         }
 

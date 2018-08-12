@@ -18,7 +18,7 @@ namespace SmirkingCat.PictureWindow
 
         private GameObject _instruction, _reset, _subtitle;
 
-        private RectTransform _instructionArrow;
+        private RectTransform _instructionArrow, _instructionNote;
 
         private Text _instructionText, _subtitleText;
 
@@ -36,6 +36,7 @@ namespace SmirkingCat.PictureWindow
             TopLeft,
             BottomLeft,
             BottomRight,
+            Trigger
 
         }
 
@@ -46,9 +47,10 @@ namespace SmirkingCat.PictureWindow
             // Get all the instruction stuff and default to the first one
             _instruction = transform.Find("Canvas/Instruction").gameObject;
             _instructionArrow = _instruction.transform.Find("Arrow").GetComponentInChildren<RectTransform>();
+            _instructionNote = _instruction.transform.Find("Note").GetComponentInChildren<RectTransform>();
             _instructionText = _instruction.transform.Find("Text").GetComponentInChildren<Text>();
 
-            ShowInstruction(INSTRUCTION.TopLeft);
+            ShowInstruction(INSTRUCTION.None);
 
             // Get the reset meter and related components
             _reset = transform.Find("Canvas/Reset").gameObject;
@@ -104,6 +106,13 @@ namespace SmirkingCat.PictureWindow
                     ShowInstruction(new Vector2(-110, 110), new Vector2(1, 0), new Vector2(1, 0), Quaternion.Euler(0, 0, 0), "bottom right");
                     break;
 
+                case INSTRUCTION.Trigger:
+                    _instruction.SetActive(true);
+                    _instructionArrow.gameObject.SetActive(false);
+                    _instructionNote.gameObject.SetActive(false);
+                    _instructionText.text = "Click the trigger to begin";
+                    break;
+
                 case INSTRUCTION.None:
                 default:
                     _instruction.SetActive(false);
@@ -119,6 +128,8 @@ namespace SmirkingCat.PictureWindow
         {
 
             _instruction.SetActive(true);
+            _instructionArrow.gameObject.SetActive(true);
+            _instructionNote.gameObject.SetActive(true);
             _instructionArrow.anchoredPosition = anchor;
             _instructionArrow.anchorMin = anchorMin;
             _instructionArrow.anchorMax = anchorMax;
